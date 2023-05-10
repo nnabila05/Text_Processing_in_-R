@@ -1,0 +1,102 @@
+---
+title: "CIND 110,Assignment 2,Part2,Q2,3,4"
+output:
+  html_document:
+    df_print: paged
+date: "2023-03-31"
+---
+
+```{r}
+#part 2 
+
+#installing the required packages.
+library("tm")
+
+#install.packages("tm", dependencies = TRUE)
+
+#install.packages("RWeka", dependencies = TRUE)
+
+#install.packages("textstem", dependencies = TRUE)
+
+#install.packages("textclean", dependencies = TRUE)
+
+#install.packages("text2vec", dependencies = TRUE)
+
+#lstPackages <- c('tm', 'RWeka', 'textstem', 'textclean', 'text2vec')
+#lapply(lstPackages, library, character.only = TRUE)
+
+```
+
+
+```{r}
+#Q1:
+#Q2:Read the relational dataset, and apply three different text pre-processing techniques to cleanse the description attribute.
+
+rawData <- read.csv(file = "G:/My Drive/Ryerson/CIND 110/Cities_CSVData.csv", header = TRUE, sep = ",")
+head(rawData)
+
+# Assign unique IDs to each document
+numberofDocs <- length(rawData$name)
+rawData$id <- paste0("Doc", c(1:numberofDocs))
+
+# Create a VectorSource object containing the text data
+listofDocs <- tm::VectorSource(rawData$description)
+listofDocs$Names <- names(rawData$id)
+
+# Create a VCorpus object from the VectorSource
+corporaData <- tm::VCorpus(listofDocs)
+
+#preprocessing 1:Utilizing a Thesaurus
+for(i in 1:8){
+  corporaData[[i]]$content <-
+    textstem::lemmatize_strings(corporaData[[i]]$content,
+                                dictionary = lexicon::hash_lemmas)}
+
+#preprocessing 2:Stemming
+corporaData <- tm::tm_map(corporaData, stemDocument)
+
+#preprocessing 3:Stopword Removal
+corporaData <- tm::tm_map(corporaData, removeWords, stopwords('english'))
+corporaData <- tm::tm_map(corporaData, removeWords, stopwords('SMART'))
+corporaData
+```
+```{r}
+#part 2,Q:3. Create a unigram TermDocumentMatrix (TDM), then represent it in a matrix format and display its dimension.
+
+# Create a uni-gram Term Document Matrix
+term.doc.matrix.1g <-
+  tm::TermDocumentMatrix(corporaData)
+tm::inspect(term.doc.matrix.1g)
+
+# Represent TDM in a matrix format and display its dimensions
+term.doc.matrix.unigram <- as.matrix(term.doc.matrix.1g)
+
+dim(term.doc.matrix.unigram)
+
+```
+```{r}
+#part2Q4. [10 Pts.] Using the vectors obtained in the previous question, apply the cosine similarity function and identify which city is most similar to Toronto.
+# Declaring weights (TF-IDF variants)
+tf.idf.weights <- function(tf.vec) {
+  # Computes tfidf weights from term frequency vector
+  n.docs <- length(tf.vec)
+  doc.frequency <- length(tf.vec[tf.vec > 0])
+  weights <- rep(0, length(tf.vec))
+  relative.frequency <- tf.vec[tf.vec > 0] / sum(tf.vec[tf.vec > 0])
+  weights[tf.vec > 0] <- relative.frequency *
+    log10(n.docs/doc.frequency)
+  return(weights)
+}
+#Compute the TF-IDF (unigram)
+tfidf.matrix.uni <- t(apply(as.matrix(term.doc.matrix.unigram), 1,
+                            FUN = function(row) {tf.idf.weights(row)}))
+colnames(tfidf.matrix.uni) <- rawData$id
+head(tfidf.matrix.uni)
+dim(tfidf.matrix.uni)
+
+#Compute Cosine Similarity indices 
+c.similarity.matrix.uni <-
+  text2vec::sim2(t(tfidf.matrix.uni), method = 'cosine')
+sort(c.similarity.matrix.uni["Doc6", ], decreasing = TRUE)[1:8]
+#Sydney is the most simillar to Toronto.
+```
